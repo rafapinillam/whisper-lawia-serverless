@@ -8,9 +8,16 @@ from faster_whisper import WhisperModel
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-logger.info("🔄 Cargando Whisper large-v3...")
-model = WhisperModel("large-v3", device="cuda", compute_type="int8")
-logger.info("✅ Modelo cargado")
+# Usar float32 que NO requiere cuDNN
+# float16 y int8 requieren cuDNN que no está disponible en todas las imágenes
+logger.info("🔄 Cargando Whisper large-v3 (float32 - sin cuDNN)...")
+try:
+    model = WhisperModel("large-v3", device="cuda", compute_type="float32")
+    logger.info("✅ Modelo cargado en GPU con float32")
+except Exception as e:
+    logger.warning(f"⚠️ GPU falló ({e}), usando CPU...")
+    model = WhisperModel("large-v3", device="cpu", compute_type="float32")
+    logger.info("✅ Modelo cargado en CPU")
 
 def handler(event):
     try:
@@ -39,12 +46,13 @@ def handler(event):
         if os.path.exists(temp_path):
             os.unlink(temp_path)
         
-        logger.info(f"✅ Transcripción: {len(text)} caracteres")
+        logger.info(f"✅ Transcripción completada: {len(text)} caracteres")
         return {
             "text": text,
             "transcription": text,
             "language": getattr(info, 'language', language),
-            "duration": getattr(info, 'duration', 0)
+            "duration": getattr(info, 'duration', 0),
+            "status": "completed"
         }
     except Exception as e:
         logger.error(f"❌ Error: {e}")
