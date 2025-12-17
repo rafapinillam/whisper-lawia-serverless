@@ -1,12 +1,14 @@
-FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
 
 WORKDIR /app
 
-# Instalar Python 3.10
+# Instalar Python y dependencias del sistema
 RUN apt-get update && apt-get install -y \
     python3.10 \
     python3.10-dev \
     python3-pip \
+    libcudnn8 \
+    libcudnn8-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Crear symlink para python
