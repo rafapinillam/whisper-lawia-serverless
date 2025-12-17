@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 logger.info("🔄 Cargando Whisper large-v3...")
-model = WhisperModel("large-v3", device="cuda", compute_type="float16")
+model = WhisperModel("large-v3", device="cuda", compute_type="int8")
 logger.info("✅ Modelo cargado")
 
 def handler(event):
@@ -20,7 +20,7 @@ def handler(event):
         task = input_data.get("task", "transcribe")
         
         if not audio_url:
-            return {"error": "audio_url requerido"}
+            return {"error": "audio_url es requerido"}
         
         logger.info(f"📥 Descargando: {audio_url}")
         response = requests.get(audio_url, timeout=300, stream=True)
@@ -33,19 +33,23 @@ def handler(event):
         
         logger.info("🎤 Transcribiendo...")
         segments, info = model.transcribe(temp_path, language=language, task=task)
-        text = " ".join([segment.text for segment in segments])
-        os.unlink(temp_path)
         
-        logger.info(f"✅ {len(text)} caracteres")
+        text = " ".join([segment.text for segment in segments])
+        
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        
+        logger.info(f"✅ Transcripción: {len(text)} caracteres")
         return {
             "text": text,
             "transcription": text,
             "language": getattr(info, 'language', language),
-            "duration": getattr(info, 'duration', 0),
-            "status": "completed"
+            "duration": getattr(info, 'duration', 0)
         }
     except Exception as e:
-        logger.error(f"❌ {e}")
+        logger.error(f"❌ Error: {e}")
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.unlink(temp_path)
         return {"error": str(e)}
 
 runpod.serverless.start({"handler": handler})
