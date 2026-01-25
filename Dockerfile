@@ -1,4 +1,6 @@
-FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
+# Dockerfile compatible con B200 (Blackwell) y H200 (Hopper)
+# NVIDIA NGC PyTorch 25.01+ incluye soporte para sm_100 (Blackwell)
+FROM nvcr.io/nvidia/pytorch:25.01-py3
 
 WORKDIR /app
 
@@ -7,11 +9,14 @@ RUN apt-get update && apt-get install -y \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Instalar dependencias
+# Nota: NO reinstalar torch/torchvision - usar los de NVIDIA NGC
+RUN pip install --no-cache-dir \
+    openai-whisper>=20231117 \
+    requests>=2.31.0 \
+    runpod>=1.6.0
 
 # Pre-descargar el modelo Whisper large-v3 durante el build
-# Esto evita descargarlo cada vez que el worker inicia (ahorra ~12 segundos)
 RUN python -c "import whisper; whisper.load_model('large-v3')"
 
 COPY handler.py .
