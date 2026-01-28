@@ -1,3 +1,8 @@
-openai-whisper>=20231117
+# Requirements para Faster Whisper Large V3
+# Versión: v1
+# Fecha: 2026-01-27
+
+faster-whisper>=1.0.0
 requests>=2.31.0
 runpod>=1.6.0
+
