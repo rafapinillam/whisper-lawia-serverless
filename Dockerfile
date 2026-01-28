@@ -1,4 +1,4 @@
- Dockerfile para Faster Whisper Large V3
+
 # Versión: v2
 # Fecha: 2026-01-27
 # Cambio: Migración de openai-whisper a faster-whisper para 4x velocidad y menor costo
