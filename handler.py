@@ -1,16 +1,3 @@
-"""
-Handler para Faster Whisper Large V3 en RunPod Serverless
-Versión: v1
-Fecha: 2026-01-27
-Cambio: Migración de openai-whisper a faster-whisper
-
-Beneficios:
-- 4x más rápido que whisper original
-- Mismo modelo large-v3 (misma precisión)
-- Menor uso de VRAM
-- Menor costo por transcripción
-"""
-
 import runpod
 import tempfile
 import os
@@ -142,7 +129,10 @@ def handler(event):
                 f.write(chunk)
             temp_path = f.name
 
-        logger.info(f"🎤 Transcribiendo con Faster Whisper ({device}, {compute_type})...")
+        # Opción para word-level timestamps (más lento pero más preciso)
+        word_timestamps = input_data.get("word_timestamps", False)
+
+        logger.info(f"🎤 Transcribiendo con Faster Whisper ({device}, {compute_type}, word_ts={word_timestamps})...")
 
         # Faster Whisper transcribe - retorna generator de segmentos
         segments, info = model.transcribe(
@@ -154,12 +144,40 @@ def handler(event):
             vad_filter=True,       # Filtrar silencios (más rápido)
             vad_parameters=dict(
                 min_silence_duration_ms=500,  # Silencios de 500ms+
-            )
+            ),
+            word_timestamps=word_timestamps  # Habilitar timestamps por palabra si se solicita
         )
 
-        # Convertir generator a lista y extraer texto
+        # Convertir generator a lista y construir segments_json con timestamps
         segments_list = list(segments)
         text = " ".join([seg.text.strip() for seg in segments_list])
+
+        # Construir segments_json con todos los timestamps
+        # Estructura: [{id, start, end, text, start_ms, end_ms, words?}]
+        segments_json = []
+        for idx, seg in enumerate(segments_list):
+            segment_data = {
+                "id": idx,
+                "start": round(seg.start, 3),      # Segundos con 3 decimales
+                "end": round(seg.end, 3),
+                "start_ms": int(seg.start * 1000), # Milisegundos para evidence_snippets
+                "end_ms": int(seg.end * 1000),
+                "text": seg.text.strip(),
+            }
+
+            # Si hay word-level timestamps, incluirlos
+            if word_timestamps and hasattr(seg, 'words') and seg.words:
+                segment_data["words"] = [
+                    {
+                        "word": w.word,
+                        "start": round(w.start, 3),
+                        "end": round(w.end, 3),
+                        "probability": round(w.probability, 3) if hasattr(w, 'probability') else None
+                    }
+                    for w in seg.words
+                ]
+
+            segments_json.append(segment_data)
 
         # Calcular duración
         duration = segments_list[-1].end if segments_list else 0
@@ -167,7 +185,7 @@ def handler(event):
         if os.path.exists(temp_path):
             os.unlink(temp_path)
 
-        logger.info(f"✅ Transcripción completada: {len(text)} caracteres, {duration:.1f}s")
+        logger.info(f"✅ Transcripción completada: {len(text)} caracteres, {duration:.1f}s, {len(segments_json)} segmentos")
         logger.info(f"📊 Idioma detectado: {info.language} (prob: {info.language_probability:.2f})")
 
         return {
@@ -176,7 +194,11 @@ def handler(event):
             "language": info.language,
             "language_probability": info.language_probability,
             "duration": duration,
-            "segments_count": len(segments_list),
+            "segments_count": len(segments_json),
+            # ======== NUEVO: segments_json para evidence_snippets ========
+            "segments_json": segments_json,  # [{id, start, end, start_ms, end_ms, text, words?}]
+            "has_word_timestamps": word_timestamps,
+            # =============================================================
             "status": "completed",
             "device": device,
             "compute_type": compute_type,
