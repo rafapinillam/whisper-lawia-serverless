@@ -1,3 +1,17 @@
+"""
+Handler para Faster Whisper Large V3 en RunPod Serverless
+Versión: v2
+Fecha: 2026-01-30
+Cambio: Preservar timestamps de segmentos para citas reproducibles
+
+Beneficios:
+- 4x más rápido que whisper original
+- Mismo modelo large-v3 (misma precisión)
+- Menor uso de VRAM
+- Menor costo por transcripción
+- [v2] Retorna segments_json con timestamps para evidence_snippets
+"""
+
 import runpod
 import tempfile
 import os
