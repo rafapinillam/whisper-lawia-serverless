@@ -1,8 +1,8 @@
 """
 Handler para Faster Whisper Large V3 en RunPod Serverless
-Versión: v2
-Fecha: 2026-01-30
-Cambio: Preservar timestamps de segmentos para citas reproducibles
+Versión: v3
+Fecha: 2026-02-17
+Cambio: Agregar silence_percentage y duration_ms para H1 Ignore List
 
 Beneficios:
 - 4x más rápido que whisper original
@@ -10,6 +10,7 @@ Beneficios:
 - Menor uso de VRAM
 - Menor costo por transcripción
 - [v2] Retorna segments_json con timestamps para evidence_snippets
+- [v3] Calcula silence_percentage para clasificación de archivos omitibles
 """
 
 import runpod
@@ -193,14 +194,31 @@ def handler(event):
 
             segments_json.append(segment_data)
 
-        # Calcular duración
+        # Calcular duración total (en segundos)
         duration = segments_list[-1].end if segments_list else 0
+        duration_ms = int(duration * 1000)
+
+        # ======== NUEVO: Calcular silence_percentage para H1 Ignore List ========
+        # La duración de habla es la suma de todos los segmentos de speech
+        # (VAD ya filtró los silencios, así que segments_list contiene solo speech)
+        speech_duration = sum(seg.end - seg.start for seg in segments_list)
+
+        # Porcentaje de silencio = (duración total - habla) / duración total * 100
+        if duration > 0:
+            silence_percentage = round(((duration - speech_duration) / duration) * 100, 2)
+        else:
+            silence_percentage = 0.0
+
+        # Contar segmentos vacíos o muy cortos (< 1 segundo de texto)
+        short_segments = sum(1 for seg in segments_list if len(seg.text.strip()) < 10)
+        # =======================================================================
 
         if os.path.exists(temp_path):
             os.unlink(temp_path)
 
         logger.info(f"✅ Transcripción completada: {len(text)} caracteres, {duration:.1f}s, {len(segments_json)} segmentos")
         logger.info(f"📊 Idioma detectado: {info.language} (prob: {info.language_probability:.2f})")
+        logger.info(f"📊 Silencio: {silence_percentage}%, Segmentos cortos: {short_segments}")
 
         return {
             "text": text,
@@ -213,6 +231,12 @@ def handler(event):
             "segments_json": segments_json,  # [{id, start, end, start_ms, end_ms, text, words?}]
             "has_word_timestamps": word_timestamps,
             # =============================================================
+            # ======== NUEVO: Métricas para H1 Ignore List ========
+            "duration_ms": duration_ms,
+            "silence_percentage": silence_percentage,
+            "speech_duration": round(speech_duration, 3),
+            "short_segments_count": short_segments,
+            # =====================================================
             "status": "completed",
             "device": device,
             "compute_type": compute_type,
@@ -226,4 +250,4 @@ def handler(event):
         return {"error": str(e)}
 
 
-runpod.serverless.start({"handler": handler})
+runpod.serverless.start({"handler": handler}))
