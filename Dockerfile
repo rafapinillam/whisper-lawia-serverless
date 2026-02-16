@@ -1,4 +1,4 @@
- Dockerfile para Faster Whisper Large V3
+
 # Versión: v3
 # Fecha: 2026-02-17
 # Cambio: Agregar silence_percentage y duration_ms para H1 Ignore List
