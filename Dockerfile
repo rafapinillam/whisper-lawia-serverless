@@ -1,7 +1,7 @@
-# Dockerfile para Faster Whisper Large V3
-# Versión: v2
-# Fecha: 2026-01-27
-# Cambio: Migración de openai-whisper a faster-whisper para 4x velocidad y menor costo
+ Dockerfile para Faster Whisper Large V3
+# Versión: v3
+# Fecha: 2026-02-17
+# Cambio: Agregar silence_percentage y duration_ms para H1 Ignore List
 # GPU: Compatible con B200 (Blackwell sm_100), H200 (Hopper), A100, L40S
 
 # NVIDIA NGC PyTorch 25.01+ incluye soporte para Blackwell (sm_100)
