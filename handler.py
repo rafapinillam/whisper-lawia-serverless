@@ -250,4 +250,4 @@ def handler(event):
         return {"error": str(e)}
 
 
-runpod.serverless.start({"handler": handler}))
+runpod.serverless.start({"handler": handler})
